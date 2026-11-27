@@ -170,13 +170,65 @@ D1はまず各アプリ1 DB、計5 DBを設計上の出発点とする。実際�
 
 **費用と受入条件:** Workerを実行せず静的ファイルが返る要求は無料だが、Workerを先に実行する経路・API・SSRはWorkersの利用量に入る。[公式の課金条件](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/)に従い、静的要求と動的要求を別に計測する。各アプリで未ログイン・一般職員・管理者の画面/API/R2アクセス、静的ファイルの配信、更新直後の旧画面、失敗時のロールバックを検証し、URL・HTTP応答・ビルド版を証跡に残す。
 
+### 5サイトのローカル Workers 起動検証（2026年11月27日）
+
+GitHub `main` の5サイトすべてについて、Node.js 22.22 環境で依存インストール、`vinext build`（`dist/server/wrangler.json` 生成）、ローカル D1 への Drizzle SQL マイグレーション適用（在庫8本・プリントオーダー3本・マニュアル11本・封入7本・KIIYA 16本）、および `wrangler dev --config dist/server/wrangler.json --local` と `vite dev` の両モードで起動・アクセス検証を実施した。
+
+| 観点 | 検証結果（5サイト共通・固有差） | 移行設計への影響 |
+| --- | --- | --- |
+| ビルド・Workers 起動 | 5サイトすべてビルド成功、ローカル D1 マイグレーション全件適用成功、`wrangler dev` 起動成功 | アプリ本体・Static Assets・D1/R2 は Cloudflare Workers 互換で動作することを確認 |
+| `wrangler dev` 未認証アクセス | 在庫・マニュアル・封入・KIIYA は `/signin-with-chatgpt` で **404**。プリントオーダーは `app/layout.tsx` の強制リダイレクトにより `/session` ↔ `/signin-with-chatgpt` 間で **307 無限リダイレクトループ**。API は全5サイトで **401** | ChatGPT Sites の認証プロキシが Workers 単体にはないため、そのままではログイン不可。プリントオーダーは認証ルートをレイアウトのリダイレクト対象から外す必要あり |
+| `wrangler dev` ヘッダー付与 | 外部から `oai-authenticated-user-*` ヘッダーを直接送信（4サイトは `/session` POST でセッション発行）すると、全5サイトで認証を通過し業務画面・API・管理画面まで動作 | 本番 Workers をこのまま公開すると**外部から認証ヘッダーを偽装可能**。本番公開前の Google OIDC 置換とヘッダー信頼の完全廃止が必須 |
+| `vite dev`（ローカル開発） | `sites-vite-plugin`（`mockAuth: true`）でモックログイン可能だが、ローカル D1 未初期化時は4サイトの `/session` POST が **500** になり、管理者環境変数または D1 登録がないと許可待ち／権限不足となる | ローカル検証手順として D1 マイグレーション先行適用と `.dev.vars` による開発用変数設定を標準化する |
+
 ### 技術選定
 
 プリントオーダーは既存Vinext構成を優先。Sites専用の認証ヘッダー、.openai/hosting.json、ビルド・環境変数依存を調査し、Cloudflare本番用設定とD1/R2 bindingを整備する。pnpm lockfileを尊重し、Node.js 22.13以上でビルド検証する。その他は回収コードに合わせ、必要な場合のみReact/TypeScript/Vite/Hono/Drizzleを採用する。各アプリを独立して移行し、全面書き換えやソースの統合は行わない。
 
-### Google認証・権限
+### Google認証・権限とヘッダー偽装対策
 
-各アプリでAuthorization Code Flow + PKCE、state、nonce、署名・iss・aud・exp検証を行う。アプリごとにGoogle subを永続識別子とし、そのアプリの既存SitesユーザーIDとは管理者承認の対応表で紐付ける。許可済みユーザーのみアクセス可能とし、管理者・職員・作業担当者の権限は各アプリのAPI側で検査する。CookieはSecure/HttpOnly/SameSite、CSRF対策、退職時のセッション失効を実装。Cookieの名前と適用範囲、ログアウト先をアプリごとに分ける。R2は非公開とし当該アプリの認証済みAPIで配信する。
+各アプリでAuthorization Code Flow + PKCE、state、nonce、署名（Google JWKS）・iss・aud・exp・email_verified検証を行う。アプリごとにGoogle subを永続識別子とし、そのアプリの既存SitesユーザーIDとは管理者承認の対応表で紐付ける。許可済みユーザーのみアクセス可能とし、管理者・職員・作業担当者の権限は各アプリのAPI側で検査する。CookieはSecure/HttpOnly/SameSite、CSRF対策、退職時のセッション失効を実装。Cookieの名前と適用範囲、ログアウト先をアプリごとに分ける。R2は非公開とし当該アプリの認証済みAPIで配信する。
+
+**具体的な置換・実装方針:**
+
+1. **`oai-authenticated-user-*` ヘッダー信頼の完全廃止と多層防御:**
+   - 全5サイトの `app/chatgpt-auth.ts`、および KIIYA の API ルート内で直接ヘッダーを参照している箇所（`app/api/[...path]/route.ts`、`app/api/admin/export/route.ts`、`app/api/chatwork/[...path]/route.ts`、`app/api/chatwork/production/[...path]/route.ts`）から `oai-authenticated-user-*` の読み取りを削除する。
+   - 多層防御として各アプリの Worker 入口（`build/sites-worker.ts` / `worker/index.ts`）で受信リクエストの `oai-authenticated-user-*` ヘッダーを無条件に破棄する。本番ビルドから `sites-vite-plugin` のモック認証経路を含めない。
+2. **認証ルートと D1 サーバーセッションへの一本化:**
+   - アプリごとに `/auth/google`（認可開始）、`/auth/google/callback`（トークン交換・ID トークン検証・セッション発行）、`/auth/logout`（セッション削除・Cookie 失効）を Route Handler として実装する。
+   - 在庫・プリントオーダー・マニュアル・封入が既に持つ D1 の `app_sessions`（60分アイドルタイムアウト）へ検証済み `user_id`（Google `sub` 対応）を紐付け、KIIYA にも同等のサーバーセッション管理を導入する。以降すべての画面・API はアプリ固有のランダムトークン Cookie（`HttpOnly; Secure; SameSite=Lax; Path=/`）と D1 のセッション照合のみで認証する。
+3. **プリントオーダー特有の 307 無限ループ対策:**
+   - `app/layout.tsx` で未認証時に強制リダイレクトしているため、存在しないパス（404）やログイン案内ページの描画時にもレイアウトが適用されて無限リダイレクトが発生する。
+   - 認証開始・コールバック・ログアウトはレイアウトを通らない Route Handler（`/auth/*`）とし、ログイン案内画面を設ける場合は `RootLayout` の強制リダイレクト対象から認証関連ルートを除外する（または保護ページのラッパー／個別ページ側で認証ガードを行う）。
+4. **ドメイン切替に伴うアプリ固有の設定変更:**
+   - プリントマニュアル: `lib/passkey-auth.ts` が参照する `WEBAUTHN_RP_ID` と `WEBAUTHN_ORIGIN` を移行先の Workers URL に合わせて設定する。
+   - KIIYA: `app/api/chatwork/[...path]/route.ts` と `app/api/chatwork/production/[...path]/route.ts` にハードコードされている旧 Sites Origin（`https://kiiya-cleaning-checker.hherocl278.chatgpt.site`）を環境変数（`APP_ORIGIN` 等）へ置換し、Chatwork OAuth のコールバック URL も新環境へ切り替える。
+
+### Wrangler 設定分離と本番環境変数・Secrets の運用
+
+**Wrangler 設定の分離:** 現行の `vinext build` が生成する `dist/server/wrangler.json` は、5サイトすべて Worker 名が `site-creator-vinext-starter`、D1 がプレースホルダ ID（`00000000-0000-4000-8000-000000000000`）、R2 バケット名が `site-creator-r2` になっている。本番・検証デプロイ前に、アプリごとに独立した `wrangler.jsonc`（独立 Worker 名・実 D1 `database_id`・実 R2 `bucket_name`・`assets.directory`・本番/検証の環境分離）を整備する。Public リポジトリへ本番 D1 ID 等の識別子を出さない運用にする場合は、リポジトリにはテンプレートのみ置き、デプロイ時に CI またはローカル設定で差し込む。
+
+**環境変数と Secrets の渡し方（Public GitHub 非コミット原則）:**
+
+| 分類 | 本番での渡し方 | ローカル検証での渡し方 | Git コミット |
+| --- | --- | --- | --- |
+| 秘密値・認証鍵・個人情報（OAuth Secret、トークン鍵、初期管理者メール／ID 等） | Worker ごとに Cloudflare Workers Secrets へ暗号化登録（`npx wrangler secret put <KEY> --name <worker>` または Cloudflare Dashboard の Encrypted 設定） | 各リポジトリ直下の `.dev.vars`（`.gitignore` 済） | **禁止** |
+| 非秘密の設定値（`APP_ORIGIN`、`WEBAUTHN_RP_ID`、`APP_ENV` 等） | アプリ別 `wrangler.jsonc` の `vars` または Cloudflare Dashboard | 同左 / `.dev.vars` | 公開可の値のみ |
+| デプロイ用認証（CI 利用時） | GitHub Actions Secrets に**当該アプリのみ操作可能な最小権限 `CLOUDFLARE_API_TOKEN`** と `CLOUDFLARE_ACCOUNT_ID` のみを登録 | 運用者端末の `wrangler login` / 最小権限トークン | **禁止** |
+
+- **Secret と `vars` の衝突防止:** `wrangler.jsonc` の `vars` に Secret と同名のキーを定義するとデプロイ時に上書き・衝突するため、Secret 管理対象のキーは `vars` に一切記載しない。アプリ側の Secrets（Google OAuth Secret や Chatwork トークン等）は GitHub Actions へ置かず Cloudflare 側へ直接登録し、デプロイパイプラインの攻撃面を最小化する。
+- **ブートストラップ変数の後始末:** 初回管理者登録用のメール環境変数（`*_BOOTSTRAP_ADMIN_EMAIL` / `ADMIN_OWNER_EMAIL`）は本番 DB へ管理者が確定した後に Worker の Secrets から削除する。
+
+**アプリ別の主要環境変数（現行コード参照分 + OIDC 移行追加分）:**
+
+| 対象 | Secrets 推奨（暗号化登録） | Vars / 切替設定（非秘密） |
+| --- | --- | --- |
+| 全5サイト共通（移行追加） | `GOOGLE_CLIENT_SECRET`（必要に応じセッション署名鍵） | `GOOGLE_CLIENT_ID`, `APP_ORIGIN` |
+| 在庫管理 | `INVENTORY_BOOTSTRAP_ADMIN_EMAIL`（初期登録後に削除可） | （任意）`INITIAL_INVENTORY_DATA` |
+| プリントオーダー | `PRINT_ORDER_BOOTSTRAP_ADMIN_EMAIL`（初期登録後に削除可） | — |
+| プリントマニュアル | `ADMIN_OWNER_EMAIL`（初期登録後に削除可） | `WEBAUTHN_RP_ID`, `WEBAUTHN_ORIGIN` |
+| 封入・納品管理 | `ADMIN_OWNER_EMAIL`（初期登録後に削除可） | — |
+| KIIYA 見落としチェッカー | `APP_ADMIN_USER_ID`, `APP_STAFF_USER_IDS`（Chatwork 連携利用時: `CHATWORK_PRODUCTION_CLIENT_SECRET`, `CHATWORK_PRODUCTION_TOKEN_KEY`, `DELIVERY_WORKER_SHARED_SECRET`, `DELIVERY_CONTROL_SECRET`, `SITE_ASSET_ACCESS_TOKEN` 等） | `APP_ADMIN_LEAD_NAME`（Chatwork 連携利用時: `CHATWORK_PRODUCTION_CLIENT_ID`, `DELIVERY_WORKER_URL`, `DELIVERY_TEST_ACCOUNT_ID`, `DELIVERY_TEST_ROOM_ID` 等） |
 
 ### KIIYA固有の検証
 
@@ -251,7 +303,7 @@ PR #16 で追加した古いソースを、現行 Sites ソース版47のスナ�
 
 ### 必須受入Gate
 
-移行前後の件数と項目値・ID・日時・参照関係を照合。画像SHA-256と全表示を確認。ログイン、未許可ユーザー拒否、CRUD、再読込、別端末、同時更新、権限、asobe/KIIYA間のアクセス拒否を実機検証する。Playwrightのスクリーンショット、HTTP応答、DB比較JSON、テストログを保存。KIIYAの外部連携があれば重複・失敗復旧も検証する。AIの完了報告だけでは合格にしない。
+移行前後の件数と項目値・ID・日時・参照関係を照合。画像SHA-256と全表示を確認。ログイン、未許可ユーザー拒否、CRUD、再読込、別端末、同時更新、権限、asobe/KIIYA間のアクセス拒否を実機検証する。加えて、外部から `oai-authenticated-user-*` ヘッダーを付与した未認証リクエストが全画面・全 API で拒否（401 または認証リダイレクト）されること、および未認証時のリダイレクトループが発生しないことを自動検証する。Playwrightのスクリーンショット、HTTP応答、DB比較JSON、テストログを保存。KIIYAの外部連携があれば重複・失敗復旧も検証する。AIの完了報告だけでは合格にしない。
 
 ## 9. 切替・復旧・未決事項
 
@@ -267,7 +319,7 @@ D1は毎日SQLエクスポート、R2は毎週・変更時に原本バックア�
 
 例：npx wrangler d1 execute inventory-restore-test --remote --file=./backups/inventory.sql
 
-未決事項・確認責任
+### 未決事項・確認責任
 
 | 事項 | 確定条件 |
 | --- | --- |
