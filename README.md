@@ -145,6 +145,7 @@ Sites の読み取り専用機能で、各サイトの配備中 D1 のバイン�
 | 項目 | 5アプリ共通の分離ルール |
 | --- | --- |
 | ホスティング・URL | アプリごとに独立Workerと独立URL。パスで統合しない |
+| 静的配信 | 各アプリのWorkerに付属する Workers Static Assets で HTML・CSS・JavaScript 等を配信。API・SSRは当該Workerで処理 |
 | 認証 | アプリごとに独立したGoogle OIDCクライアント、コールバック、セッションCookie、許可ユーザー管理 |
 | DB | アプリごとに独立D1。認証用テーブルも原則そのアプリのD1内に置き、他アプリと共有しない |
 | 画像 | 必要なアプリに専用R2バケット。画像原本を他アプリと共有しない |
@@ -152,6 +153,22 @@ Sites の読み取り専用機能で、各サイトの配備中 D1 のバイン�
 | デプロイ | アプリごとに独立CI／Wrangler設定と最小権限トークン |
 
 D1はまず各アプリ1 DB、計5 DBを設計上の出発点とする。実際のDB数と無料枠は契約時に再確認し、検証環境のDBも含めて費用を計算する。共通認証DBと共通ポータルは設けない。
+
+### Sites の技術要件と静的配信
+
+**配信方式:** 5つの業務アプリでは各Workerに[Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/)を付属させる。ビルド成果物の公開用ディレクトリをアプリごとのWrangler設定の`assets.directory`に指定し、HTML・CSS・JavaScript・公開可能な画像を配信する。API、OAuthコールバック、サーバー描画が必要な画面は同じアプリのWorkerで処理する。Cloudflare PagesはAPIを持たない独立した案内サイト等の選択肢とし、この5アプリの標準構成には採用しない。R2の業務画像原本や報告ファイルはStatic Assetsへ配置しない。
+
+| Sitesでの現行構成・依存 | Cloudflare移行時の要件 |
+| --- | --- |
+| 5サイトの公開ソースはNext.js/ReactとSitesのWorkerビルドを使用 | アプリごとに実際のビルド成果物とSSR・API経路を確認し、Cloudflare Workersで動くビルド設定へ移す。Node.jsサーバー専用APIやSites固有ランタイムへの依存は個別に置換・検証する |
+| `.openai/hosting.json` にD1の`DB`、必要な2サイトにR2の`BUCKET`を宣言 | 各アプリ専用のWrangler設定・環境別bindingに置き換え、本番と検証環境のDB・バケットを取り違えない。デプロイ前にbinding名と実体を照合する |
+| Sitesのサインインと`oai-authenticated-user-id`等の認証ヘッダー | 前節のアプリ別Google OIDCとセッションへ置き換え、既存ユーザーID・所有者・役割を承認済み対応表で移行する。ヘッダーをCloudflare本番でも受け取れる前提にしない |
+| Sitesの実行時環境変数・秘密値 | 公開ソースや静的成果物から除外し、各Workerの秘密設定へ移す。プレビューと本番の値・権限を分ける |
+| Sitesの版と静的成果物 | 各アプリのGitコミット、Workerコード、静的成果物、DBマイグレーションを対応付けて配備・ロールバックする。配備中にHTMLとアセットが異なる版から返る可能性を踏まえ、旧画面が参照するファイルの読み込みも検証する |
+
+**認証を通す経路:** Static Assetsは既定で一致するファイルをWorkerより先に返す。公開可能なアセットと、認証が必要なHTML・ファイルの経路をアプリごとに列挙する。保護対象は[`assets.run_worker_first`](https://developers.cloudflare.com/workers/static-assets/routing/worker-script/)の対象としてWorkerで認証・認可してから返す。SPAのフォールバックやSSR経路も、未ログイン利用者が保護画面・データを取得できないことを確認する。フロントエンドの表示制御だけに依存せず、APIとR2配信でも権限を検査する。
+
+**費用と受入条件:** Workerを実行せず静的ファイルが返る要求は無料だが、Workerを先に実行する経路・API・SSRはWorkersの利用量に入る。[公式の課金条件](https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/)に従い、静的要求と動的要求を別に計測する。各アプリで未ログイン・一般職員・管理者の画面/API/R2アクセス、静的ファイルの配信、更新直後の旧画面、失敗時のロールバックを検証し、URL・HTTP応答・ビルド版を証跡に残す。
 
 ### 技術選定
 
@@ -172,7 +189,7 @@ Workers Freeを基本とし、有料化は承認制とする。以下は前回�
 | 項目 | 無料枠（設計値） | 警戒ライン |
 | --- | --- | --- |
 | Workers | 10万動的要求/日、CPU 10ms/要求 | 7万要求/日 |
-| 静的配信 | 無料・無制限（該当配信） | 動的処理と区別 |
+| 静的配信 | Workerを呼ばないStatic Assets要求は無料・無制限。`run_worker_first`対象はWorkers要求として計測 | 静的処理と動的処理を区別 |
 | D1読込 | 500万行/日 | 350万行/日 |
 | D1書込 | 10万行/日 | 7万行/日 |
 | D1容量 | 合計5GB、個別500MB、10 DB | 個別350MB |
