@@ -12,13 +12,13 @@
 
 ## 2. 移行対象と優先順位
 
-| 対象 | 優先度 | 2026年11月26日時点のソース管理 |
+| 対象 | 優先度 | 2026年11月27日の現行ソース照合結果 |
 | --- | --- | --- |
-| asobe在庫管理 | S | Public リポジトリへローカルソースのスナップショットを登録 |
-| プリントオーダー | S | 既存 Public リポジトリを確認。現行配備との差分は未照合 |
-| プリントマニュアル | S | Public リポジトリへ登録。埋込写真は除外 |
-| 封入・納品管理 | 要確認 | Public リポジトリへ登録。移行の要否は利用状況で判断 |
-| KIIYA見落としチェッカー | B・独立 | 現行 Sites ソースを既存 Public リポジトリの `main` に反映 |
+| asobe在庫管理 | S | 公開Sites版37とGitHub `main` の配信ソースが一致。生成ビルド情報とGitHub側の資料を除く |
+| プリントオーダー | S | 公開Sites版65とGitHub `main` の配信ソースが一致。生成ビルド情報を除く |
+| プリントマニュアル | S | 公開Sites版59とGitHub `main` のコードが一致。埋込写真と確認用画像は公開リポジトリから除外 |
+| 封入・納品管理 | 要確認 | 公開Sites版17とGitHub `main` の配信ソースが一致。GitHub側の資料を除く。移行要否は利用状況で判断 |
+| KIIYA見落としチェッカー | B・独立 | 公開Sites版47のソースを既存Publicリポジトリの`main`へ反映。大型フォントを除外 |
 
 ## 3. アプリとログインの分離方針
 
@@ -32,15 +32,15 @@ Cloudflareアカウントを共有するかは所有権と費用を踏まえて�
 
 ## 4. 現行サイトと GitHub の対応
 
-| 対象 | Sites URL | GitHub URL | ソース登録状況 |
+| 対象 | Sites URL・公開版 | GitHub URL | 照合時点の差分（文書更新前） |
 | --- | --- | --- | --- |
-| 在庫管理 | [silk-screen-inventory](https://silk-screen-inventory.hherocl278.chatgpt.site/session?return_to=%2F) | [asobe-inventory-site](https://github.com/nto300002/asobe-inventory-site) | 2026-10-16 のローカルコミットを登録 |
-| プリントオーダー | [asobe-print-order-20261012](https://asobe-print-order-20261012.hherocl278.chatgpt.site/) | [asobe-print-order-20261012](https://github.com/nto300002/asobe-print-order-20261012) | 既存リポジトリを確認 |
-| プリントマニュアル | [asobe-silk-screen-skill-check](https://asobe-silk-screen-skill-check.hherocl278.chatgpt.site/) | [asobe-silk-screen-manual-site](https://github.com/nto300002/asobe-silk-screen-manual-site) | 2026-11-25 のローカルコミットを登録。埋込写真と確認用画像を除外 |
-| 封入・納品管理 | [funnou-nouhin-kanri](https://funnou-nouhin-kanri.hherocl278.chatgpt.site/) | [asobe-packing-delivery-site](https://github.com/nto300002/asobe-packing-delivery-site) | 2026-11-12 のローカルコミットを登録 |
-| KIIYA見落としチェッカー | [kiiya-cleaning-checker](https://kiiya-cleaning-checker.hherocl278.chatgpt.site/) | [kiiya-cleaning-checker-site](https://github.com/nto300002/kiiya-cleaning-checker-site) | 現行 Sites ソース版47を `sites-source/` に同期し、`main` に統合。大型フォントを除外 |
+| 在庫管理 | [silk-screen-inventory](https://silk-screen-inventory.hherocl278.chatgpt.site/session?return_to=%2F) v37 | [asobe-inventory-site](https://github.com/nto300002/asobe-inventory-site) | 配信ソース一致。生成された`tsconfig.tsbuildinfo`のみ内容差。GitHub側に資料2件 |
+| プリントオーダー | [asobe-print-order-20261012](https://asobe-print-order-20261012.hherocl278.chatgpt.site/) v65 | [asobe-print-order-20261012](https://github.com/nto300002/asobe-print-order-20261012) | 配信ソース一致。生成された`tsconfig.tsbuildinfo`のみ内容差 |
+| プリントマニュアル | [asobe-silk-screen-skill-check](https://asobe-silk-screen-skill-check.hherocl278.chatgpt.site/) v59 | [asobe-silk-screen-manual-site](https://github.com/nto300002/asobe-silk-screen-manual-site) | コード一致。埋込写真を空データに置換し、確認用画像4点を除外。GitHub側に資料2件 |
+| 封入・納品管理 | [funnou-nouhin-kanri](https://funnou-nouhin-kanri.hherocl278.chatgpt.site/) v17 | [asobe-packing-delivery-site](https://github.com/nto300002/asobe-packing-delivery-site) | 現行Sitesの追跡ファイルが全て一致。GitHub側に資料2件 |
+| KIIYA見落としチェッカー | [kiiya-cleaning-checker](https://kiiya-cleaning-checker.hherocl278.chatgpt.site/) v47 | [kiiya-cleaning-checker-site](https://github.com/nto300002/kiiya-cleaning-checker-site) | 現行Sitesソースを`sites-source/`に同期。大型フォントを除外 |
 
-上記5つの GitHub リポジトリは Public。Sites URL は原資料の記載を引き継ぎ、2026年11月26日に各画面へアクセスできることを確認した。2026年11月27日の出力機能の変更は各リポジトリの `main` に反映済み。GitHub のソースには本番 DB、画像原本、秘密鍵、OAuth secret、Chatwork トークンを含めない。
+上記5つの GitHub リポジトリは Public。2026年11月27日に4サイトの公開版に対応するSitesソースコミットとGitHub `main`の追跡ファイル一覧・SHA-256を照合した。照合対象のコミットは各リポジトリの`docs/source_provenance.md`に記録した。その後の文書更新を除き、出力機能を含む配信ソースは上表の例外を除いて一致する。画像原本等の意図的な除外ファイルは「一致」に含めない。GitHubには本番DB、画像原本、秘密鍵、OAuth secret、Chatworkトークンを含めない。Sitesのビルド成果物や本番データがGitHubと同一であるという意味ではない。
 
 移行対象5サイトとは別に、[上土出席体調管理 Site](https://uedo-attendance-health.hherocl278.chatgpt.site/) のソースを [Public GitHub リポジトリ](https://github.com/nto300002/uedo-attendance-health) の `main` に登録した。業務レコードや秘密値は登録していない。上土サイトを本移行計画の対象に加える決定はしていない。
 
@@ -62,12 +62,12 @@ Cloudflareアカウントを共有するかは所有権と費用を踏まえて�
 
 ### 管理者ログインとレコードダウンロードの調査
 
-2026年11月26日、依頼者の ChatGPT アカウントで5つの Sites URL を開き、サインイン後の画面を確認した。業務データの追加・変更・削除やダウンロードは行っていない。確認した管理画面には、業務レコード全件をファイルとして取得する操作は見当たらなかった。画面にある PDF 化や個別報告の出力は、DB・画像を含む移行用エクスポートとは別の機能として扱う。
+以下は2026年11月26日の調査記録。当時は業務データの追加・変更・削除やダウンロードを行っておらず、全件取得の操作は見当たらなかった。11月27日に出力機能を追加した後の状態とソース同期結果は上表を参照。画面にある PDF 化や個別報告の出力は、DB・画像を含む移行用エクスポートとは別の機能として扱う。
 
 | サイト | ログイン・管理画面の確認結果 | レコード保管先とエクスポート方針 |
 | --- | --- | --- |
-| 在庫管理 | サインイン成功。画面に「管理者」と表示され、職員台帳・操作記録を開けた | D1 の品目、日別在庫、購入依頼を ID・日時・参照関係ごと JSON/CSV へ。公開済みソースは職員台帳がある配備版より古いため、実装前に現行ソースを回収・照合 |
-| プリントオーダー | サインイン成功。画面に「管理」と表示され、職員台帳・操作記録を開けた | D1 の `app_state` にある版番号と業務状態の完全な JSON を優先し、注文・制作実績の CSV を補助出力。現行配備との差分を照合 |
+| 在庫管理 | サインイン成功。画面に「管理者」と表示され、職員台帳・操作記録を開けた | D1 の品目、日別在庫、購入依頼を ID・日時・参照関係ごと JSON/CSV へ。当時のソース差分は現在解消済み |
+| プリントオーダー | サインイン成功。画面に「管理」と表示され、職員台帳・操作記録を開けた | D1 の `app_state` にある版番号と業務状態の完全な JSON を優先し、注文・制作実績の CSV を補助出力。当時のソース差分は現在解消済み |
 | プリントマニュアル | サインイン成功。設定とアカウント管理画面を開けた。編集には登録済みパスキーでの追加確認が必要 | D1 のマニュアル本文、動画情報、利用者進捗などを JSON/CSV へ。R2 と元ソースに埋め込まれた写真の原本を一覧・MIME・サイズ・SHA-256 とともに別ファイルとして回収。ダウンロードにパスキーを要求するか権限設計時に決める |
 | 封入・納品管理 | サインイン成功。職員画面で依頼者アカウントの役割が「管理」、有効と表示された | D1 の番号、工程別残数、納品記録、明細を ID・日時・参照関係ごと JSON/CSV へ。利用継続の判断と独立にバックアップを用意 |
 | KIIYA 見落としチェッカー | サインイン成功。職員台帳で依頼者アカウントの役割が「アプリ管理者」と表示された | D1 の作業、報告、画像メタデータ、マスタ履歴を JSON/CSV へ。R2 の画像原本も別途回収。現行 Sites ソースを GitHub に同期済み。画面で ZIP 取得の完了表示を確認。ZIPの独立検査と復元試験は未実施 |
@@ -217,7 +217,7 @@ R2は無料枠超過で従量課金される。保存量・アップロードサ
 
 ### プリントオーダー
 
-既存 Public リポジトリの存在を確認した。次に現在の Sites デプロイと差分を照合し、移行用ブランチで既存コード・履歴を維持する。DBスキーマと本番データは別物として回収する。
+現行Sites公開版65の追跡ソースをGitHub `main`と照合し、生成ビルド情報を除く配信ソースの一致を確認した。DBスキーマと本番データはコードとは別に回収・検証する。
 
 ### KIIYA：既存リモートへのソース追記
 
@@ -225,7 +225,7 @@ PR #16 で追加した古いソースを、現行 Sites ソース版47のスナ�
 
 ### 原資料で GitHub 未登録だった3サイト
 
-在庫・マニュアル・封入のローカルソースを、それぞれ新しい Public リポジトリに登録した。登録したのは既知のローカルコミットのスナップショットであり、現行配備との差分は未照合。マニュアルの埋込写真と確認用画像は公開対象から除外したため、写真原本の所在確認と保全を優先する。
+在庫・マニュアル・封入のPublicリポジトリを、現行Sites公開版37・59・17のソースと照合した。配信ソースの差分はマニュアルの埋込写真と確認用画像の意図的な除外のみ。生成ビルド情報の差やGitHub独自の資料は上表に示す。マニュアルの写真原本は公開GitHubとは別に保全する。
 
 ### Sites作成元チャットへの調査指示
 
