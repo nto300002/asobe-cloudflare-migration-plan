@@ -1,8 +1,8 @@
 # ChatGPT Sites Cloudflare 移行計画
 
-原資料: `cloudflare_migration_plan_v1.1.docx`（2026年11月26日）。この README は原資料の計画を保持し、その後の GitHub ソース登録と方針変更を反映した最新版です。各アプリのリポジトリにある v1.1 の写しは当時の計画資料であり、移行方針はこの README を正本とします。Cloudflare への移行と本番データの回収は未実施です。2026年11月27日に、移行対象5サイトへ管理者向けエクスポートの初期実装を追加した。
+原資料: `cloudflare_migration_plan_v1.1.docx`（2026年11月26日）。この README は原資料の計画を保持し、その後の GitHub ソース登録・方針変更・Cloudflare 移行実績を反映した最新版です。各アプリのリポジトリにある v1.1 の写しは当時の計画資料であり、移行方針および最新進捗はこの README を正本とします。
 
-**更新日: 2026年11月28日。状態: 5サイトのエクスポート初期実装をSitesへ公開済み。プリントオーダーのJSON許可リストを修正。Cloudflare移行は計画段階。**
+**更新日: 2026年11月28日。状態: 全5サイトのCloudflare Workers移行（Google OIDC・ヘッダー偽装対策・独立D1/R2・移行後抽出機能削除）が完了し稼働中。在庫管理・プリントオーダー・KIIYAの旧Sites ZIPデータ移行および突合完了（封入・プリントマニュアルは既存Cloudflare D1/R2接続済み・最終差分照合待ち）。静的リンク集ポータル（`asobe-portal`）を公開済み。残作業は各リポジトリの `feat/cloudflare-google-oidc` → `main` マージ、封入・マニュアルの最終差分確認、KIIYAのChatwork連携開通、必須受入Gate検証、旧Sites停止。**
 
 原資料では未登録サイトを Private リポジトリにする案でしたが、所有者の後続指示に従い Public で公開しています。原資料中の課金条件・無料枠・日程は計画時点の前提であり、契約と実測で再確認します。
 
@@ -28,7 +28,9 @@
 
 Cloudflareアカウントを共有するかは所有権と費用を踏まえて決める。同一アカウントを使う場合でも、アプリごとのデプロイトークンは他アプリの資源を変更できない権限にする。KIIYAの組織所有権が異なる場合はCloudflareアカウント自体も分離する。
 
-本番データの全件照合、画像原本の復元試験、利用人数は未確認。ソースの GitHub 登録と5サイトへの初期実装は実施したが、Cloudflare への移行は実施していない。
+2026年11月28日に、5アプリの独立性（別Worker・別Google OAuth・別セッション・別D1/R2・データ非共有）を維持したまま、利用者の導線として**認証やAPIを持たない純粋な静的リンク集ポータル**（`asobe-portal` / `https://asobe-portal.asobe.workers.dev`）を別途公開した。各業務サイトへの遷移リンクのみを提供し、ログイン状態やセッションは一切共有しない。
+
+移行進捗・GitHubブランチ差分・データ移行状況の最新結果は次節を参照。
 
 ## 4. 現行サイトと GitHub の対応
 
@@ -43,6 +45,24 @@ Cloudflareアカウントを共有するかは所有権と費用を踏まえて�
 上記5つの GitHub リポジトリは Public。2026年11月27日に4サイトの公開版に対応するSitesソースコミットとGitHub `main`の追跡ファイル一覧・SHA-256を照合した。照合対象のコミットは各リポジトリの`docs/source_provenance.md`に記録した。その後の文書更新を除き、出力機能を含む配信ソースは上表の例外を除いて一致する。画像原本等の意図的な除外ファイルは「一致」に含めない。GitHubには本番DB、画像原本、秘密鍵、OAuth secret、Chatworkトークンを含めない。Sitesのビルド成果物や本番データがGitHubと同一であるという意味ではない。
 
 移行対象5サイトとは別に、[上土出席体調管理 Site](https://uedo-attendance-health.hherocl278.chatgpt.site/) のソースを [Public GitHub リポジトリ](https://github.com/nto300002/uedo-attendance-health) の `main` に登録した。業務レコードや秘密値は登録していない。上土サイトを本移行計画の対象に加える決定はしていない。
+
+### Cloudflare 移行の進捗と GitHub ブランチ差分（2026年11月28日）
+
+全5サイトについて `feat/cloudflare-google-oidc` ブランチ上で Google OIDC 認証置換、`oai-authenticated-user-*` ヘッダー破棄、独立 Wrangler 設定整備、および移行後の業務データ・スキーマ抽出機能削除を実施し、Cloudflare Workers へ本番デプロイ済み。旧 Sites 互換のソースは各リポジトリの `main` に保持している。
+
+| 対象 | 移行先 Workers URL | GitHub ブランチ状況（`origin/main` vs `origin/feat/cloudflare-google-oidc`） | PR 状態 | データ移行・DB/R2 状況 | 抽出機能（移行後） |
+| --- | --- | --- | --- | --- | --- |
+| 在庫管理 | https://asobe-inventory-site.asobe.workers.dev | `main` `07405bf` / `feat` `a76a3a6`（`main` より +2 コミット、ローカル一致） | 未作成 | **移行・突合完了**（ZIP取込: `items` 110 / `daily_inventory` 202 / `shortage_requests` 89、PDF照合・FK検証 0 差異） | 削除済み（`/api/export` → 404） |
+| プリントオーダー | https://asobe-print-order.asobe.workers.dev | `main` `ee6b51b` / `feat` `ca25ba0`（**分岐あり**: `main` に +1 `ee6b51b` 抽出ポリシー修正、`feat` に +2。`feat` では抽出機能自体を削除済みのため `main` 統合時は削除優先で解消） | 未作成 | **移行・突合完了**（ZIP取込: `app_state` 1行 `revision=344`、SHA-256 バイト完全一致、`orders` 16 / `sessions` 5、Google認証ログイン実機確認済み） | 削除済み（`/api/export` → `/session` 転送、バンドル参照 0） |
+| プリントマニュアル | https://asobe-silk-screen-manual.asobe.workers.dev | `main` `c7e0e60` / `feat` `3402e70`（`main` より +2 コミット、ローカル一致） | 未作成 | **既存 Cloudflare D1/R2 接続済み**（D1: `users` 6 / `manual_documents` 1 / `progress` 87、R2: 61 件 114 MB。旧 Sites 側との最新差分有無は要最終照合） | 削除済み（`/api/admin/export` → 404） |
+| 封入・納品管理 | https://asobe-packing-delivery.asobe.workers.dev | `main` `9526b6a` / `feat` `8f8cc32`（`main` より +2 コミット、ローカル一致） | 未作成 | **既存 Cloudflare D1 接続済み**（D1: `variants` 3 / `balances` 3 / `deliveries` 10 / `delivery_lines` 18。旧 Sites 側との最新差分有無は要最終照合） | 削除済み（`/api/admin/export` → 404） |
+| KIIYA 見落としチェッカー | https://kiiya-cleaning-checker.asobe.workers.dev | `main` `31d0f34` / `feat` `7654625`（`main` より +2 コミット、ローカル一致） | PR #16 統合済み / `feat` 用 PR 未作成 | **移行・突合完了**（ZIP取込: `works` 14 件追加で計 15 件、`work_changes` 342 件追加で計 377 件、`images` 4、`report_versions` 15、`chatwork_delivery_jobs` 21、R2 31 件転送・実オブジェクト検証完了・FK検証 0 差異。Chatwork 連携設定は未開通） | 削除済み（バンドル参照 0） |
+| asobe ポータル（静的サイト） | https://asobe-portal.asobe.workers.dev | **GitHub 未登録**（ローカル `asobe-portal-site/` から Cloudflare Workers Static Assets へ直接デプロイ済み） | — | DB なし（静的 HTML/CSS/JS・自然背景 3 枚・各アプリカバー画像 5 枚のみ） | 対象外 |
+
+**GitHub 同期上の確認事項:**
+- 全 5 サイトとも `origin/feat/cloudflare-google-oidc` に最新の本番稼働コードがプッシュ済みで、ローカル作業ツリーとの未プッシュ差分はない。
+- `main` ブランチにはまだ統合（PR 作成・マージ）していないため、旧 ChatGPT Sites 停止・本番切替が完了するまでは `main`＝旧 Sites 基準、`feat/cloudflare-google-oidc`＝Cloudflare 本番基準として管理し、切替完了後に 5 リポジトリすべて `main` へマージする（プリントオーダーは `ee6b51b` との分岐差分を整理）。
+- 静的ポータルサイト（`asobe-portal`）を GitHub 管理対象にする場合は、新規リポジトリ作成と初回プッシュを実施する。
 
 ### 5サイトのエクスポート初期実装（2026年11月27日）
 
@@ -232,9 +252,34 @@ GitHub `main` の5サイトすべてについて、Node.js 22.22 環境で依存
 | 封入・納品管理 | `ADMIN_OWNER_EMAIL`（初期登録後に削除可） | — |
 | KIIYA 見落としチェッカー | `APP_ADMIN_USER_ID`, `APP_STAFF_USER_IDS`（Chatwork 連携利用時: `CHATWORK_PRODUCTION_CLIENT_SECRET`, `CHATWORK_PRODUCTION_TOKEN_KEY`, `DELIVERY_WORKER_SHARED_SECRET`, `DELIVERY_CONTROL_SECRET`, `SITE_ASSET_ACCESS_TOKEN` 等） | `APP_ADMIN_LEAD_NAME`（Chatwork 連携利用時: `CHATWORK_PRODUCTION_CLIENT_ID`, `DELIVERY_WORKER_URL`, `DELIVERY_TEST_ACCOUNT_ID`, `DELIVERY_TEST_ROOM_ID` 等） |
 
-### KIIYA固有の検証
+### KIIYA固有の検証と Chatwork 連携開通手順
 
-既存設計にChatwork連携、毎分監視・遅延照合・日次処理の候補がある。現行サイトの実装有無を確認し、必要ならWorkers Cron等で再現性・重複送信防止・実行時間・費用を検証する。外部Cloud Tasks等は費用未確定のため採用保留。
+#### 1. 日付またぎ自動アーカイブ・表示クリア機能の確認結果（2026年11月28日）
+KIIYA の「日付をまたぐと前日以前の記録をアーカイブへ回し、当日の表示をクリアする機能」は外部 Cron ではなく、クライアント画面（`app/cleaning-app.tsx` の 30 秒周期 `todayJst()` 監視）と API 側の JST 日付キー判定で完結していることを確認した。Cloudflare Workers 移行後もそのまま機能する（未保存編集がある場合は誤消去防止のため保存確認メッセージを出し、翌日の新規アクセス時は当日分のみを自動展開する）。
+
+#### 2. ユーザーおよび Chatwork 連携設定の移行可否
+- **ユーザー**: エクスポート仕様（`export-policy.json`）で `app_users.email`・セッション・登録申請は除外されているため、旧ユーザーのまま自動ログインはできない。過去履歴の担当者参照を壊さないよう旧 `app_users` 3 名は `active=0`・`email=''` の参照用レコードとして取り込み、現役スタッフは新環境で Google ログイン＋権限登録を行う。
+- **Chatwork 連携設定**: `chatwork_production_settings`・`chatwork_delivery_runtime` 等は暗号化トークン（`token_cipher`）を含むためエクスポート対象外であり、暗号鍵・Secrets も旧 Sites から取り出せず、ドメインも変更されるため再設定が必須。
+
+#### 3. Chatwork 連携開通までの手順（全 5 ステップ）
+KIIYA の Chatwork 連携は、**① サイト側の OAuth 接続・送信先ルーム確定** と、**② 外部配送ワーカー（GCP Cloud Run / Cloud Tasks）経由の実投稿** の 2 段構成となっている。現在の本番環境（2026年11月28日時点）は Google 認証用 Secrets のみ登録済みで、`chatwork_production_settings` / `chatwork_delivery_runtime` は未初期化（0 行）。
+
+1. **Chatwork OAuth クライアント設定の更新**
+   - リダイレクト URI に `https://kiiya-cleaning-checker.asobe.workers.dev/api/chatwork/production/oauth/callback` を追加する。
+   - 必要スコープ（`rooms.files:write` を含む）が有効であることを確認する。
+2. **Cloudflare Workers（`kiiya-cleaning-checker`）への Secrets 登録**（値は Cloudflare 側へ暗号化登録し、Public GitHub には含めない）
+   - OAuth 接続・D1 初期化用（5 個）: `CHATWORK_PRODUCTION_CLIENT_ID`, `CHATWORK_PRODUCTION_CLIENT_SECRET`, `CHATWORK_PRODUCTION_TOKEN_KEY`（新規ランダム鍵）, `DELIVERY_CONTROL_OPERATOR_ID`, `DELIVERY_CONTROL_SECRET`（32 文字以上、ワーカー共有鍵とは別値）
+   - 実投稿・配送ワーカー連携用（6 個）: `DELIVERY_WORKER_URL`, `DELIVERY_WORKER_SHARED_SECRET`（24 文字以上）, `DELIVERY_WORKER_IDENTITY_AUDIENCE`, `DELIVERY_TEST_ACCOUNT_ID`, `DELIVERY_TEST_ROOM_ID`, `DELIVERY_TRIAL_WORKER_SUBJECT`
+3. **本番 D1 の初期レコード作成（`initialize`）**
+   - 運用者制御 API `POST https://kiiya-cleaning-checker.asobe.workers.dev/api/chatwork/production/internal/control` へ `Authorization: Bearer <DELIVERY_CONTROL_SECRET>` を付与し、`{"action":"initialize","expectedGeneration":0,"reason":"Initial setup on Cloudflare Workers"}` を送信して `chatwork_production_settings` と `chatwork_delivery_runtime` の初期行を作成する。
+4. **アプリ画面「Chatwork 連携」タブで送信元と送信先ルームを確定**
+   - 「1. 送信元を接続」で OAuth 認可を行い、表示名・アカウント ID を確認して「このアカウントを送信元にする」を実行する。
+   - 「2. 送信先のルームを指定」（`field` 現場職員権限が必要）でルーム ID を入力 →「ルーム名を確認する」→ 10 分以内に「このルームを送信先にする」を実行する。
+5. **配送ワーカー（GCP Cloud Run）の向き先切替・承認と投稿確認**
+   - Cloud Run 配送ワーカー（`kiiya-chatwork-delivery` 等）の環境変数 `SITE_ORIGIN` を `https://kiiya-cleaning-checker.asobe.workers.dev` へ切り替え、`DELIVERY_WORKER_SHARED_SECRET`・`SITE_IDENTITY_AUDIENCE`・`APPROVAL_GENERATION` をサイト側と同期する。
+   - 運用者制御 API で `action: "approve"`（`workerSubject`, `workerRevision`, `siteRevision`, `imageDigest`, `expectedGeneration: 0`）を実行し、ワーカーからの heartbeat 記録を確認する。
+   - アプリ画面「3. 投稿を確認」で「確認文を送る」を実行し、Chatwork 上で投稿者・ルーム名・識別番号を照合して「投稿確認済／設定完了」を押して完了とする。
+   - ※GCP 配送ワーカーを維持せず Cloudflare Workers 単体から直接 Chatwork API へ送信する構成へ簡素化する場合は、重複送信防止・トークン更新排他を含めた設計変更を別途判断する。
 
 ## 6. 費用計画・上限制御
 
@@ -321,17 +366,17 @@ D1は毎日SQLエクスポート、R2は毎週・変更時に原本バックア�
 
 例：npx wrangler d1 execute inventory-restore-test --remote --file=./backups/inventory.sql
 
-### 未決事項・確認責任
+### 残作業・確認事項（2026年11月28日時点）
 
-| 事項 | 確定条件 |
-| --- | --- |
-| コード完全性 | 現行配備とGitの差分照合 |
-| 写真原本 | 手元／Sites／その他の所在確認 |
-| 封入管理 | 利用者への確認で継続判断 |
-| 本番データ・権限 | 事業所承認、容量・ユーザー・権限実測 |
-| KIIYA分離範囲 | Cloudflareアカウント自体の分離要否 |
-| 予算 | 税・外部API・バックアップ費用の扱い |
-| 課金条件 | OpenAI最新の契約・停止条件確認 |
+| 事項 | 状態 | 次のアクション / 確定条件 |
+| --- | --- | --- |
+| 在庫管理・プリントオーダー・KIIYA の Cloudflare 開通とデータ移行 | 完了 | 実運用前の最終差分取込（旧 Sites 停止直前）と必須受入 Gate の証跡化 |
+| プリントマニュアル・封入納品管理の最終データ照合 | 要確認 | 既存接続済み Cloudflare D1/R2 と旧 ChatGPT Sites 側最新データの差分有無を ZIP 抽出等で照合 |
+| KIIYA の Chatwork 連携開通 | 未着手 | 上記 5 ステップ（OAuth URI 追加・Secrets 登録・D1 `initialize`・画面接続・Cloud Run `SITE_ORIGIN` 切替＆承認、または単体送信への簡素化判断） |
+| 各リポジトリの `feat/cloudflare-google-oidc` → `main` 統合 | 未実施 | 切替確認後、5 リポジトリで PR 作成・マージ（プリントオーダーは `ee6b51b` との分岐整理）。ポータル（`asobe-portal-site/`）の GitHub 登録要否を決定 |
+| Google 認証のブートストラップ環境変数後始末 | 要確認 | 初期管理者が D1 に確定済みのサイトから不要な `*_BOOTSTRAP_ADMIN_EMAIL` / `ADMIN_OWNER_EMAIL` を削除 |
+| 全 5 サイトの必須受入 Gate・実機検証 | 一部実施済み | 残りサイトの実機ログイン・CRUD・権限・非許可ユーザー拒否・バックアップ復元試験を証跡化 |
+| KIIYA 分離範囲・予算・旧 Sites 停止 | 未決 | Cloudflare アカウント分離要否、GCP Cloud Run 含む月額費用確認、OpenAI 最新の課金・停止条件確認後に旧 Sites を停止 |
 
 ## 10. 参考資料
 
