@@ -2,7 +2,7 @@
 
 原資料: `cloudflare_migration_plan_v1.1.docx`（2026年11月26日）。この README は原資料の計画を保持し、その後の GitHub ソース登録と方針変更を反映した最新版です。各アプリのリポジトリにある v1.1 の写しは当時の計画資料であり、移行方針はこの README を正本とします。Cloudflare への移行と本番データの回収は未実施です。2026年11月27日に、移行対象5サイトへ管理者向けエクスポートの初期実装を追加した。
 
-**更新日: 2026年11月27日。状態: 5サイトのエクスポート初期実装をSitesへ公開済み。Cloudflare移行は計画段階。**
+**更新日: 2026年11月28日。状態: 5サイトのエクスポート初期実装をSitesへ公開済み。プリントオーダーのJSON許可リストを修正。Cloudflare移行は計画段階。**
 
 原資料では未登録サイトを Private リポジトリにする案でしたが、所有者の後続指示に従い Public で公開しています。原資料中の課金条件・無料枠・日程は計画時点の前提であり、契約と実測で再確認します。
 
@@ -15,7 +15,7 @@
 | 対象 | 優先度 | 2026年11月27日の現行ソース照合結果 |
 | --- | --- | --- |
 | asobe在庫管理 | S | 公開Sites版37とGitHub `main` の配信ソースが一致。生成ビルド情報とGitHub側の資料を除く |
-| プリントオーダー | S | 公開Sites版65とGitHub `main` の配信ソースが一致。生成ビルド情報を除く |
+| プリントオーダー | S | 公開Sites版66の出力ポリシーをGitHub `main` に反映。生成ビルド情報を除く |
 | プリントマニュアル | S | 公開Sites版59とGitHub `main` のコードが一致。埋込写真と確認用画像は公開リポジトリから除外 |
 | 封入・納品管理 | 要確認 | 公開Sites版17とGitHub `main` の配信ソースが一致。GitHub側の資料を除く。移行要否は利用状況で判断 |
 | KIIYA見落としチェッカー | B・独立 | 公開Sites版47のソースを既存Publicリポジトリの`main`へ反映。大型フォントを除外 |
@@ -35,7 +35,7 @@ Cloudflareアカウントを共有するかは所有権と費用を踏まえて�
 | 対象 | Sites URL・公開版 | GitHub URL | 照合時点の差分（文書更新前） |
 | --- | --- | --- | --- |
 | 在庫管理 | [silk-screen-inventory](https://silk-screen-inventory.hherocl278.chatgpt.site/session?return_to=%2F) v37 | [asobe-inventory-site](https://github.com/nto300002/asobe-inventory-site) | 配信ソース一致。生成された`tsconfig.tsbuildinfo`のみ内容差。GitHub側に資料2件 |
-| プリントオーダー | [asobe-print-order-20261012](https://asobe-print-order-20261012.hherocl278.chatgpt.site/) v65 | [asobe-print-order-20261012](https://github.com/nto300002/asobe-print-order-20261012) | 配信ソース一致。生成された`tsconfig.tsbuildinfo`のみ内容差 |
+| プリントオーダー | [asobe-print-order-20261012](https://asobe-print-order-20261012.hherocl278.chatgpt.site/) v66 | [asobe-print-order-20261012](https://github.com/nto300002/asobe-print-order-20261012) | 出力ポリシー版2を同期。生成された`tsconfig.tsbuildinfo`はGitHubと内容差 |
 | プリントマニュアル | [asobe-silk-screen-skill-check](https://asobe-silk-screen-skill-check.hherocl278.chatgpt.site/) v59 | [asobe-silk-screen-manual-site](https://github.com/nto300002/asobe-silk-screen-manual-site) | コード一致。埋込写真を空データに置換し、確認用画像4点を除外。GitHub側に資料2件 |
 | 封入・納品管理 | [funnou-nouhin-kanri](https://funnou-nouhin-kanri.hherocl278.chatgpt.site/) v17 | [asobe-packing-delivery-site](https://github.com/nto300002/asobe-packing-delivery-site) | 現行Sitesの追跡ファイルが全て一致。GitHub側に資料2件 |
 | KIIYA見落としチェッカー | [kiiya-cleaning-checker](https://kiiya-cleaning-checker.hherocl278.chatgpt.site/) v47 | [kiiya-cleaning-checker-site](https://github.com/nto300002/kiiya-cleaning-checker-site) | 現行Sitesソースを`sites-source/`に同期。大型フォントを除外 |
@@ -51,12 +51,14 @@ Cloudflareアカウントを共有するかは所有権と費用を踏まえて�
 | サイト | 管理画面 | 出力内容 | 公開版 |
 | --- | --- | --- | --- |
 | 在庫管理 | `/staff` | 品目・日別在庫・不足申請の全行、6テーブルの構造と件数 | Sites v37 |
-| プリントオーダー | `/staff` | `app_state` の全行、4テーブルの構造と件数。JSON内部の版管理したキー許可リストで未知キーを停止 | Sites v65 |
+| プリントオーダー | `/staff` | `app_state` の全行、4テーブルの構造と件数。JSON内部の版管理したキー許可リストで未知キーを停止 | Sites v66 |
 | プリントマニュアル | `/passkey?tab=accounts` | 利用者・教材・動画・進捗の業務行、13テーブルの構造と件数、R2画像。画像は安全な生成名と元キーの対応をマニフェストへ記録 | Sites v59 |
 | 封入・納品管理 | `/staff` | 品番・残数・納品・内訳の全行、8テーブルの構造と件数 | Sites v17 |
 | KIIYA 見落としチェッカー | メニュー → 職員台帳 | 作業・報告・画像等の業務行、29テーブルの構造と件数、R2の画像・報告ファイル | Sites v47 |
 
 5サイトとも認証・連携の秘密値は ZIP から除外し、構造と件数を含める。出力ファイルに `manifest.json`、`schema/schema.sql`、`schema/tables.json`、業務テーブルごとの JSON Lines を含める。ZIP 自身の SHA-256 を画面で計算し、別の `.sha256` ファイルとして保存できる。マニフェストは自身のハッシュを含めない。
+
+2026年11月28日、プリントオーダーで保存済みの`phaseTimers.press`がJSON許可リストにないため出力が停止した。注文・作業記録の3工程タイマーと`basicFieldOrder`をポリシー版2へ追加し、公開版66の管理者画面でZIP取得の完了を確認した。未知のJSONキーを停止する条件は維持する。
 
 **残る受け入れ作業:** 下記「確定仕様」は移行用の完成目標であり、今回の画面と API はその初期実装である。ジョブ管理、書込み停止と異常終了時のリース解除、30分超の段階取得、ダウンロード時の追加パスキー確認、分割出力、復元試験、全行・全画像の独立照合は未実装または未実施。現在の出力は一度のリクエストで作成し、容量上限を超える場合は成功させず失敗する。プリントマニュアルの出力はR2画像を含むが、ソースに埋め込まれた既定写真の原本は含めていない。移行用の完全なバックアップとして採用する前に、これらを実装・検証する。
 
